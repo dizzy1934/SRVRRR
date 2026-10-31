@@ -41,11 +41,27 @@ export interface ConservationStatus {
 
 export type FaultKind = "timeout" | "http" | "network" | "malformed";
 
-export interface ApiFault {
+export interface ApiFaultDetails {
     provider: string;
     resource: string;
     kind: FaultKind;
-    httpsStatus?: number;
+    httpStatus?: number;
+}
+
+export class ApiFault extends Error {
+    readonly provider: string;
+    readonly resource: string;
+    readonly kind: FaultKind;
+    readonly httpStatus?: number;
+
+    constructor(details: ApiFaultDetails) {
+        super('${details.provider} ${details.kind} fault on ${details.resource}');
+        this.name = "ApiFault";
+        this.provider = details.provider;
+        this.resource = details.resource;
+        this.kind = details.kind;
+        this.httpStatus = details.httpStatus;
+    }
 }
 
 export interface DataResult<T> {
