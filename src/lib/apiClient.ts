@@ -13,6 +13,14 @@ export function buildUrl(baseUrl: string, path: string, params: QueryParams): st
   return url.toString();
 }
 
+function isAbortError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: string }).name === "AbortError"
+  );
+}
+
 export interface ApiClientOptions {
   baseUrl: string;
   provider: string;
@@ -38,31 +46,35 @@ export class ApiClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
-    // 3. Send the request with fetch
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-
-    // 4. If the response is not OK, throw an ApiFault (kind "http")
-    if (!response.ok) {
-      throw this.fault("http", path, response.status);
-    }
-
-    // 5. Parse the body as JSON; if that fails, throw an ApiFault (kind "malformed")
-    let body: T;
     try {
-      body = (await response.json()) as T;
-    } catch {
-      throw this.fault("malformed", path, response.status);
+      // 3. Send the request with fetch
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+
+      // 4. If the response is not OK, throw an ApiFault (kind "http")
+      if (!response.ok) {
+        throw this.fault("http", path, response.status);
+      }
+
+      // 5. Parse the body as JSON; if that fails, throw an ApiFault (kind "malformed")
+      try {
+        // 6. Return the parsed body
+        return (await response.json()) as T;
+      } catch (err) {
+        if (isAbortError(err)) throw err;
+        throw this.fault("malformed", path, response.status);
+      }
+    } catch (err) {
+      // 7. If the timer cancelled it, throw kind "timeout"; any other failure, "network"
+      if (err instanceof ApiFault) throw err;
+      if (isAbortError(err)) throw this.fault("timeout", path);
+      throw this.fault("network", path);
+    } finally {
+      // 8. Always stop the timer at the end
+      clearTimeout(timer);
     }
-
-    // 6. Return the parsed body
-    clearTimeout(timer);
-    return body;
-
-    // 7. (next step) If the timer cancelled it, throw kind "timeout"; any other failure, "network"
-    // 8. (next step) Always stop the timer at the end
   }
 
   private fault(kind: FaultKind, resource: string, httpStatus?: number): ApiFault {
