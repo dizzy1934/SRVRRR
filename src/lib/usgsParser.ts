@@ -37,3 +37,21 @@ export function parseFeature(feature: UsgsFeature): Measurement | null {
     sourceUrl: `https://waterdata.usgs.gov/monitoring-location/${props.monitoring_location_id}/`,
   };
 }
+
+export function pickLatest(measurements: Measurement[]): Measurement[] {
+  // 1. Make an empty Map: parameter code -> the newest measurement seen so far
+  const best = new Map<string, Measurement>();
+
+  // 2. Go through the measurements one at a time:
+  //    - if that parameter's drawer is empty, put this measurement in
+  //    - if it already holds one, replace it only if this one is NEWER
+  for (const m of measurements) {
+    const current = best.get(m.parameterCode);
+    if (current === undefined || m.collectedAt.getTime() > current.collectedAt.getTime()) {
+      best.set(m.parameterCode, m);
+    }
+  }
+
+  // 3. Return everything in the Map as a list
+  return Array.from(best.values());
+}
