@@ -12,6 +12,17 @@ export interface UsgsFeature {
   };
 }
 
+// How USGS writes a unit -> how we show it to a visitor.
+const UNIT_LABELS: Record<string, string> = {
+  degC: "°C",
+  _FNU: "FNU",
+  "mg/l": "mg/L",
+};
+
+function formatUnit(raw: string): string {
+  return UNIT_LABELS[raw] ?? raw;
+}
+
 export function parseFeature(feature: UsgsFeature): Measurement | null {
   const props = feature.properties;
 
@@ -32,7 +43,7 @@ export function parseFeature(feature: UsgsFeature): Measurement | null {
     parameterCode: props.parameter_code,
     parameterName: info.name,
     value,
-    unit: props.unit_of_measure,
+    unit: formatUnit(props.unit_of_measure),
     collectedAt: new Date(props.time),
     sourceUrl: `https://waterdata.usgs.gov/monitoring-location/${props.monitoring_location_id}/`,
   };
