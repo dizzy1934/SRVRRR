@@ -14,6 +14,7 @@ export interface MetricExplanation {
 }
 
 export interface Measurement {
+    stationId: string;
     parameterCode: string;
     parameterName: string;
     value: number;
