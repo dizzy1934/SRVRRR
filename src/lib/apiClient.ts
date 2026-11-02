@@ -32,13 +32,20 @@ export class ApiClient {
     // 1. Build the full URL from baseUrl, path, and params
     const url = buildUrl(this.baseUrl, path, params);
     // 2. Start a timer that cancels the request after timeoutMs
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     // 3. Send the request with fetch
+    const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: "application/json"},
+    });
     // 4. If the response is not OK, throw an ApiFault (kind "http")
     // 5. Parse the body as JSON; if that fails, throw an ApiFault (kind "malformed")
     // 6. Return the parsed body
     // 7. If the timer cancelled it, throw kind "timeout"; any other failure, "network"
     // 8. Always stop the timer at the end
-    throw new Error(`not implemented yet: ${url}`);
+    clearTimeout(timer);
+    throw new Error('not implemented yet: status ${response.status}');
   }
 }
 
