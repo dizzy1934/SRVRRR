@@ -1,4 +1,5 @@
 import { ApiClient } from "../apiClient";
+import { ExplanationStore } from "../repositories/explanationStore";
 import { ApiFault, DataResult, Measurement } from "../types";
 import { UsgsFeature, parseFeature, pickLatest } from "../usgsParser";
 import { FallbackService } from "./fallbackService";
@@ -11,10 +12,12 @@ interface UsgsResponse {
 export class WaterQualityService {
   private readonly client: ApiClient;
   private readonly fallback: FallbackService;
+  private readonly explanations: ExplanationStore;
 
-  constructor(client: ApiClient, fallback: FallbackService) {
+  constructor(client: ApiClient, fallback: FallbackService, explanations: ExplanationStore) {
     this.client = client;
     this.fallback = fallback;
+    this.explanations = explanations;
   }
 
   async getMeasurements(stationId: string): Promise<DataResult<Measurement[]>> {
@@ -38,15 +41,30 @@ export class WaterQualityService {
       // 3. Keep the newest reading per parameter
       const latest = pickLatest(parsed);
 
-      // 4. Wrap the result and return it
-      return { data: latest, isFallback: false, retrievedAt: new Date(), message: null };
+      // 4. Attach a plain-language explanation to each measurement
+      const translated: Measurement[] = [];
+      for (const measurement of latest) {
+        translated.push(await this.translate(measurement));
+      }
+
+      // 5. Wrap the result and return it
+      return { data: translated, isFallback: false, retrievedAt: new Date(), message: null };
     } catch (err) {
-      // 5. A known failure becomes a friendly fallback result
+      // 6. A known failure becomes a friendly fallback result
       if (err instanceof ApiFault) {
         return this.fallback.handle<Measurement[]>(err, []);
       }
       // Anything else is a bug in our code; don't hide it
       throw err;
     }
+  }
+
+  // Pairs a measurement with its explanation, if one exists.
+  private async translate(measurement: Measurement): Promise<Measurement> {
+    const explanation = await this.explanations.findByCode(measurement.parameterCode);
+    if (explanation === null) {
+      return measurement;
+    }
+    return { ...measurement, explanation };
   }
 }
