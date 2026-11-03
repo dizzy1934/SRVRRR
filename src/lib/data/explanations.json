@@ -1,0 +1,26 @@
+[
+  {
+    "parameterCode": "00010",
+    "title": "Water temperature",
+    "plainLanguage": "How warm or cold the water is.",
+    "ecologicalEffect": "Temperature shapes which plants and animals can live in the water. Warmer water holds less dissolved oxygen."
+  },
+  {
+    "parameterCode": "63680",
+    "title": "Turbidity",
+    "plainLanguage": "How cloudy the water is due to suspended material.",
+    "ecologicalEffect": "Cloudy water blocks sunlight that underwater plants need, and the suspended material can settle onto habitat where fish and other animals live."
+  },
+  {
+    "parameterCode": "00300",
+    "title": "Dissolved oxygen",
+    "plainLanguage": "The amount of oxygen available in the water for fish and other aquatic organisms.",
+    "ecologicalEffect": "Fish and other aquatic life breathe oxygen dissolved in the water, and low levels can stress or suffocate them. Algae blooms can use up oxygen this way."
+  },
+  {
+    "parameterCode": "00400",
+    "title": "pH",
+    "plainLanguage": "How acidic or basic the water is.",
+    "ecologicalEffect": "Most aquatic plants and animals depend on pH staying within a fairly narrow range, and extremes can stress them."
+  }
+]
