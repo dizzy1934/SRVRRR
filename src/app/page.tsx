@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { stationService } from "../lib/appServices";
+import { stationService, waterQualityService } from "../lib/appServices";
+import { MeasurementCards } from "./MeasurementCards";
 import { StationList } from "./StationList";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -24,6 +25,23 @@ async function Stations({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
+async function Readings({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const stationId = first(params.station);
+
+  if (stationId === "") {
+    return <p className="mt-8 text-zinc-600 dark:text-zinc-400">Select a station to see its latest measurements.</p>;
+  }
+
+  const station = await stationService.getById(stationId);
+  if (station === null) {
+    return <p className="mt-8">We couldn&rsquo;t find that station. Please choose one from the list.</p>;
+  }
+
+  const result = await waterQualityService.getMeasurements(station.stationId);
+  return <MeasurementCards stationName={station.name} measurements={result.data} />;
+}
+
 export default function Home({ searchParams }: { searchParams: SearchParams }) {
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -39,6 +57,10 @@ export default function Home({ searchParams }: { searchParams: SearchParams }) {
 
       <Suspense fallback={<p className="mt-8">Loading stations&hellip;</p>}>
         <Stations searchParams={searchParams} />
+      </Suspense>
+
+      <Suspense fallback={<p className="mt-8">Loading measurements&hellip;</p>}>
+        <Readings searchParams={searchParams} />
       </Suspense>
     </main>
   );
