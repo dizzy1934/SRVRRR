@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SF Bay Water Quality Explorer
 
-## Getting Started
+A public web app that shows recent water-quality measurements from San Francisco Bay
+monitoring stations, with plain-language explanations. Built by Team SRVRRR for CMPE 131.
 
-First, run the development server:
+Live alpha: https://srvrrr.vercel.app
+
+This site is for education and exploration. It does not say whether water is safe for
+drinking, swimming, or fishing.
+
+## Run it locally
+
+You need Node.js 20 or newer and Git.
 
 ```bash
+git clone https://github.com/dizzy1934/SRVRRR.git
+cd SRVRRR
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. Click a station to load its latest measurements.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No API keys or environment variables are needed yet.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Useful commands
 
-## Learn More
+- `npm run dev` starts the development server
+- `npm run build` makes a production build (the same step Vercel runs)
+- `npx tsc --noEmit` checks the TypeScript for errors
 
-To learn more about Next.js, take a look at the following resources:
+## How it works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. The page (`src/app`) reads the station and search text from the address.
+2. `StationService` finds stations in `src/lib/data/stations.json`.
+3. `WaterQualityService` asks the USGS Water Data API for the station's latest readings
+   through `ApiClient`, keeps the newest reading per parameter, and attaches the
+   plain-language text from `src/lib/data/explanations.json`.
+4. If USGS is slow or down, `FallbackService` returns a readable message instead of an error.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project layout
 
-## Deploy on Vercel
+- `src/app` page and display components
+- `src/lib/types.ts` shared types
+- `src/lib/apiClient.ts` outbound requests with a 5-second timeout and typed errors
+- `src/lib/usgsParser.ts` and `parameters.ts` turn USGS readings into measurements
+- `src/lib/services` station, water-quality, and fallback services
+- `src/lib/repositories` station and explanation lookups
+- `src/lib/data` stations and explanation text
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Known limitations (alpha)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Only one station is configured (SF Bay at the San Mateo Bridge).
+- Dissolved oxygen and pH show "Not available" because this station has no current reading.
+- Where a station has two sensors for one parameter, the app shows one of them.
+- No wildlife panel, map, or caching yet.
+- No automated tests yet.
