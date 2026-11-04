@@ -1,4 +1,30 @@
-export default function Home() {
+import { Suspense } from "react";
+import { stationService } from "../lib/appServices";
+import { StationList } from "./StationList";
+
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+// An address like ?q=a&q=b gives a list. We keep the first value, and keep it short.
+function first(value: string | string[] | undefined): string {
+  const text = Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+  return text.slice(0, 100);
+}
+
+async function Stations({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const query = first(params.q);
+  const selected = first(params.station);
+  const stations = await stationService.search(query);
+  return (
+    <StationList
+      stations={stations}
+      query={query}
+      selectedId={selected === "" ? null : selected}
+    />
+  );
+}
+
+export default function Home({ searchParams }: { searchParams: SearchParams }) {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-3xl font-semibold">SF Bay Water Quality Explorer</h1>
@@ -10,6 +36,10 @@ export default function Home() {
         This site is for education and exploration. It does not say whether water is
         safe for drinking, swimming, or fishing.
       </p>
+
+      <Suspense fallback={<p className="mt-8">Loading stations&hellip;</p>}>
+        <Stations searchParams={searchParams} />
+      </Suspense>
     </main>
   );
 }
