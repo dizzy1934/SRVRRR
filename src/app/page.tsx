@@ -30,15 +30,35 @@ async function Readings({ searchParams }: { searchParams: SearchParams }) {
   const stationId = first(params.station);
 
   if (stationId === "") {
-    return <p className="mt-8 text-zinc-600 dark:text-zinc-400">Select a station to see its latest measurements.</p>;
+    return (
+      <p className="mt-8 text-zinc-600 dark:text-zinc-400">
+        Select a station to see its latest measurements.
+      </p>
+    );
   }
 
   const station = await stationService.getById(stationId);
   if (station === null) {
-    return <p className="mt-8">We couldn&rsquo;t find that station. Please choose one from the list.</p>;
+    return (
+      <p className="mt-8">
+        We couldn&rsquo;t find that station. Please choose one from the list.
+      </p>
+    );
   }
 
   const result = await waterQualityService.getMeasurements(station.stationId);
+
+  if (result.isFallback && result.data.length === 0) {
+    return (
+      <p
+        role="status"
+        className="mt-8 rounded border border-amber-400 bg-amber-50 p-3 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+      >
+        {result.message}
+      </p>
+    );
+  }
+
   return <MeasurementCards stationName={station.name} measurements={result.data} />;
 }
 
