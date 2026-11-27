@@ -55,3 +55,4 @@ No API keys or environment variables are needed yet.
 - Where a station has two sensors for one parameter, the app shows one of them.
 - No wildlife panel, map, or caching yet.
 - No automated tests yet.
+- The iNaturalist and NatureServe response shapes were checked against live responses on Nov 26, 2026. Neither needed an API key.
