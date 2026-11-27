@@ -65,9 +65,3 @@ Services are tested with a fake network, so no live API is called.
 - Only one station is configured (SF Bay at the San Mateo Bridge).
 - Dissolved oxygen and pH show "Not available" because this station has no current reading.
 - Where a station has two sensors for one parameter, the app shows one of them.
-- Wildlife shows community sightings within 5 km, not a complete species list. Conservation
-  status comes from NatureServe; if no record is found the card says so (this does not mean
-  the species is not at risk).
-- The iNaturalist and NatureServe response shapes were written from their public docs and
-  have not yet been checked against live responses. Check the wildlife panel after deploy.
-- No map or caching yet.
