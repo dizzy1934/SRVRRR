@@ -1,16 +1,23 @@
+// ApiClient: the single place that makes outbound HTTP calls (SFDS 5.2.2).
+// - aborts at timeoutMs (default 5000, SFDS Design Goal 2.2)
+// - checks the response shape when a validator is supplied
+// - throws a typed ApiFault on timeout, non-2xx status, network error,
+//   or malformed payload, so services never handle raw fetch errors.
+
 import { ApiFault, FaultKind } from "./types";
 
 export type QueryParams = Record<string, string | number | undefined>;
 
-export function buildUrl(baseUrl: string, path: string, params: QueryParams): string {
-  const joined = `${baseUrl}/${path.replace(/^\/+/, "")}`;
-  const url = new URL(joined);
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) {
-      url.searchParams.set(key, String(value));
-    }
-  }
-  return url.toString();
+// A "type guard": returns true only if the body really has the shape T.
+export type Validator<T> = (body: unknown) => body is T;
+
+export interface ApiClientOptions {
+  baseUrl: string;
+  provider: string;
+  timeoutMs?: number;
+  headers?: Record<string, string>;
+  // Injectable so tests can simulate timeouts and bad payloads (SFDS 11.1).
+  fetchImpl?: typeof fetch;
 }
 
 function isAbortError(err: unknown): boolean {
@@ -21,64 +28,91 @@ function isAbortError(err: unknown): boolean {
   );
 }
 
-export interface ApiClientOptions {
-  baseUrl: string;
-  provider: string;
-  timeoutMs?: number;
-}
-
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly provider: string;
   private readonly timeoutMs: number;
+  private readonly headers: Record<string, string>;
+  private readonly fetchImpl: typeof fetch;
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.provider = options.provider;
     this.timeoutMs = options.timeoutMs ?? 5000;
+    this.headers = options.headers ?? {};
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
-  async get<T>(path: string, params: QueryParams = {}): Promise<T> {
-    // 1. Build the full URL from baseUrl, path, and params
-    const url = buildUrl(this.baseUrl, path, params);
+  async get<T>(path: string, params: QueryParams = {}, validate?: Validator<T>): Promise<T> {
+    return this.request<T>(path, params, { method: "GET" }, validate);
+  }
 
-    // 2. Start a timer that cancels the request after timeoutMs
+  // Used for NatureServe's search endpoint, which takes a JSON body.
+  async post<T>(path: string, body: unknown, validate?: Validator<T>): Promise<T> {
+    return this.request<T>(
+      path,
+      {},
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+      },
+      validate,
+    );
+  }
+
+  private async request<T>(
+    path: string,
+    params: QueryParams,
+    init: { method: string; body?: string; headers?: Record<string, string> },
+    validate?: Validator<T>,
+  ): Promise<T> {
+    const url = this.buildUrl(path, params);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      // 3. Send the request with fetch
-      const response = await fetch(url, {
+      const response = await this.fetchImpl(url, {
+        method: init.method,
+        body: init.body,
         signal: controller.signal,
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", ...this.headers, ...init.headers },
       });
 
-      // 4. If the response is not OK, throw an ApiFault (kind "http")
       if (!response.ok) {
         throw this.fault("http", path, response.status);
       }
 
-      // 5. Parse the body as JSON; if that fails, throw an ApiFault (kind "malformed")
+      let body: unknown;
       try {
-        // 6. Return the parsed body
-        return (await response.json()) as T;
+        body = await response.json();
       } catch (err) {
-        if (isAbortError(err)) throw err;
+        if (isAbortError(err)) throw err; // handled below as a timeout
         throw this.fault("malformed", path, response.status);
       }
+
+      if (validate && !validate(body)) {
+        throw this.fault("malformed", path, response.status);
+      }
+      return body as T;
     } catch (err) {
-      // 7. If the timer cancelled it, throw kind "timeout"; any other failure, "network"
       if (err instanceof ApiFault) throw err;
       if (isAbortError(err)) throw this.fault("timeout", path);
       throw this.fault("network", path);
     } finally {
-      // 8. Always stop the timer at the end
       clearTimeout(timer);
     }
+  }
+
+  private buildUrl(path: string, params: QueryParams): string {
+    const url = new URL(`${this.baseUrl}/${path.replace(/^\/+/, "")}`);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) url.searchParams.set(key, String(value));
+    }
+    return url.toString();
   }
 
   private fault(kind: FaultKind, resource: string, httpStatus?: number): ApiFault {
     return new ApiFault({ provider: this.provider, resource, kind, httpStatus });
   }
 }
-

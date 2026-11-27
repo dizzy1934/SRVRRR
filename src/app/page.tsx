@@ -1,7 +1,8 @@
 import { Suspense } from "react";
-import { stationService, waterQualityService } from "../lib/appServices";
+import { speciesService, stationService, waterQualityService } from "../lib/appServices";
 import { MeasurementCards } from "./MeasurementCards";
 import { StationList } from "./StationList";
+import { WildlifePanel } from "./WildlifePanel";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -62,6 +63,32 @@ async function Readings({ searchParams }: { searchParams: SearchParams }) {
   return <MeasurementCards stationName={station.name} measurements={result.data} />;
 }
 
+// Wildlife has its own Suspense boundary and its own failure message, so a
+// wildlife outage never hides the water cards (TC-006).
+async function Wildlife({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const stationId = first(params.station);
+  if (stationId === "") return null;
+
+  const station = await stationService.getById(stationId);
+  if (station === null) return null;
+
+  const result = await speciesService.getSpecies(station);
+
+  if (result.isFallback && result.data.length === 0) {
+    return (
+      <p
+        role="status"
+        className="mt-10 rounded border border-amber-400 bg-amber-50 p-3 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+      >
+        {result.message}
+      </p>
+    );
+  }
+
+  return <WildlifePanel stationName={station.name} species={result.data} notice={result.message} />;
+}
+
 export default function Home({ searchParams }: { searchParams: SearchParams }) {
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -81,6 +108,10 @@ export default function Home({ searchParams }: { searchParams: SearchParams }) {
 
       <Suspense fallback={<p className="mt-8">Loading measurements&hellip;</p>}>
         <Readings searchParams={searchParams} />
+      </Suspense>
+
+      <Suspense fallback={<p className="mt-10">Loading wildlife&hellip;</p>}>
+        <Wildlife searchParams={searchParams} />
       </Suspense>
     </main>
   );
