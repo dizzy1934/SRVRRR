@@ -9,6 +9,15 @@ interface UsgsResponse {
   features: UsgsFeature[];
 }
 
+// Shape check: ApiClient rejects a body without a "features" list as malformed.
+function isUsgsResponse(body: unknown): body is UsgsResponse {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    Array.isArray((body as { features?: unknown }).features)
+  );
+}
+
 export class WaterQualityService {
   private readonly client: ApiClient;
   private readonly fallback: FallbackService;
@@ -23,11 +32,11 @@ export class WaterQualityService {
   async getMeasurements(stationId: string): Promise<DataResult<Measurement[]>> {
     try {
       // 1. Ask USGS for the station's latest readings
-      const response = await this.client.get<UsgsResponse>("collections/latest-continuous/items", {
-        f: "json",
-        monitoring_location_id: stationId,
-        limit: 100,
-      });
+      const response = await this.client.get<UsgsResponse>(
+        "collections/latest-continuous/items",
+        { f: "json", monitoring_location_id: stationId, limit: 100 },
+        isUsgsResponse,
+      );
 
       // 2. Turn each reading into a Measurement, dropping the unusable ones
       const parsed: Measurement[] = [];
